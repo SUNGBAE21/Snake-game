@@ -89,8 +89,9 @@ button:hover {
 }
 
 .game-title { 
-    font-size: 85px; color: #fff; text-shadow: 0 8px 0 #2c3e50, 0 15px 20px rgba(0,0,0,0.5); 
+    font-size: clamp(40px, 13vw, 85px); color: #fff; text-shadow: 0 8px 0 #2c3e50, 0 15px 20px rgba(0,0,0,0.5); 
     margin-bottom: 50px; animation: floatTitle 3s ease-in-out infinite; text-align: center; font-family: 'Noto Sans KR', sans-serif; font-weight: 900;
+    white-space: nowrap;
 }
 
 @keyframes floatTitle { 
@@ -99,7 +100,7 @@ button:hover {
 }
 
 #start-btn { 
-    background: #ff4757; font-size: 36px; padding: 20px 60px; border-radius: 40px; 
+    background: #ff4757; font-size: clamp(24px, 6vw, 36px); padding: clamp(12px, 3vw, 20px) clamp(30px, 8vw, 60px); border-radius: 40px; 
     box-shadow: 0 10px 0 #c0392b, 0 15px 20px rgba(0,0,0,0.4); animation: pulseBtn 2s infinite; 
 }
 
@@ -119,7 +120,7 @@ button:hover {
 }
 
 #countdown-text { 
-    font-size: 200px; color: #ffffff; text-shadow: 0 10px 0 #2c3e50, 0 20px 30px rgba(0,0,0,0.6); 
+    font-size: clamp(100px, 30vw, 200px); color: #ffffff; text-shadow: 0 10px 0 #2c3e50, 0 20px 30px rgba(0,0,0,0.6); 
     font-family: 'Fredoka', cursive; margin: 0;
 }
 
