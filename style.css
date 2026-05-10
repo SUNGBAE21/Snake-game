@@ -91,7 +91,6 @@ button:hover {
 .game-title { 
     font-size: clamp(40px, 13vw, 85px); color: #fff; text-shadow: 0 8px 0 #2c3e50, 0 15px 20px rgba(0,0,0,0.5); 
     margin-bottom: 50px; animation: floatTitle 3s ease-in-out infinite; text-align: center; font-family: 'Noto Sans KR', sans-serif; font-weight: 900;
-    white-space: nowrap;
 }
 
 @keyframes floatTitle { 
