@@ -1,16 +1,29 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Jungle Snake Adventure</title>
     <!-- 어린이 친화적인 귀여운 둥근 폰트 적용 -->
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Nunito:wght@700;900&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div id="ui-layer">
-        <div id="score-board">
+        <div id="start-screen">
+            <h1 class="game-title">캐치! 스네이크</h1>
+            <button id="start-btn">시작 [START]</button>
+        </div>
+
+        <div id="countdown-screen" class="hidden">
+            <h1 id="countdown-text">3</h1>
+        </div>
+
+        <div id="score-board" class="hidden">
             SCORE <span id="score">0</span>
             <div id="offline-badge" style="display: none;">OFFLINE MODE</div>
         </div>
@@ -25,8 +38,9 @@
         </div>
     </div>
     <canvas id="gameCanvas"></canvas>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="game.js"></script>
 </body>
+
 </html>

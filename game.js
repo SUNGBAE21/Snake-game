@@ -29,26 +29,46 @@ window.addEventListener('resize', resize);
 resize();
 
 // --- Input Handling ---
-let touchStartX = 0, touchStartY = 0;
-let inputQueue = [];
+let dragStartX = 0, dragStartY = 0, dragCurrentX = 0, dragCurrentY = 0;
+let isDragging = false, inputQueue = [];
+
+const handleDragStart = (x, y) => {
+    dragStartX = dragCurrentX = x;
+    dragStartY = dragCurrentY = y;
+    isDragging = true;
+};
+
+const handleDragMove = (x, y) => {
+    if (!isDragging) return;
+    dragCurrentX = x; dragCurrentY = y;
+    const dx = x - dragStartX, dy = y - dragStartY;
+    const dist = Math.hypot(dx, dy);
+    
+    if (dist > 5) {
+        player && (player.dir = { x: dx / dist, y: dy / dist });
+        dist > 60 && (dragStartX = x - (dx / dist) * 60, dragStartY = y - (dy / dist) * 60);
+    }
+};
+
+const handleDragEnd = () => isDragging = false;
+
+window.addEventListener('mousedown', e => handleDragStart(e.clientX, e.clientY));
+window.addEventListener('mousemove', e => handleDragMove(e.clientX, e.clientY));
+window.addEventListener('mouseup', handleDragEnd);
+
 window.addEventListener('touchstart', e => { 
-    touchStartX = e.touches[0].clientX; 
-    touchStartY = e.touches[0].clientY; 
+    e.target.tagName !== 'BUTTON' && handleDragStart(e.touches[0].clientX, e.touches[0].clientY); 
 }, {passive: false});
 
-window.addEventListener('touchend', e => {
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
-        Math.abs(dx) > Math.abs(dy) 
-            ? inputQueue.push(dx > 0 ? {x: 1, y: 0} : {x: -1, y: 0})
-            : inputQueue.push(dy > 0 ? {x: 0, y: 1} : {x: 0, y: -1});
-    }
-});
+window.addEventListener('touchmove', e => {
+    isDragging && (e.preventDefault(), handleDragMove(e.touches[0].clientX, e.touches[0].clientY));
+}, {passive: false});
+
+window.addEventListener('touchend', handleDragEnd);
 
 window.addEventListener('keydown', e => {
     const keys = { ArrowUp: {x:0,y:-1}, ArrowDown: {x:0,y:1}, ArrowLeft: {x:-1,y:0}, ArrowRight: {x:1,y:0} };
-    if(keys[e.key]) inputQueue.push(keys[e.key]);
+    keys[e.key] ? inputQueue.push(keys[e.key]) : null;
 });
 
 // --- Items (Lightning) ---
@@ -147,7 +167,7 @@ class PlayerSnake {
     update(dt) {
         if (inputQueue.length > 0) {
             const nextDir = inputQueue.shift();
-            if (this.dir.x !== -nextDir.x || this.dir.y !== -nextDir.y) this.dir = nextDir;
+            this.dir = nextDir;
         }
         
         const head = this.nodes[0];
@@ -885,10 +905,67 @@ function gameLoop(timestamp) {
 
     ctx.restore();
 
+    if (isDragging) {
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        
+        ctx.beginPath(); ctx.arc(dragStartX, dragStartY, 60, 0, Math.PI * 2);
+        ctx.fillStyle = '#2c3e50'; ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+
+        ctx.beginPath(); ctx.arc(dragCurrentX, dragCurrentY, 25, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff'; ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = '#2c3e50'; ctx.stroke();
+        
+        ctx.restore();
+    }
+
     requestAnimationFrame(gameLoop);
 }
 
-document.getElementById('restart-btn').addEventListener('click', init);
+const startScreen = document.getElementById('start-screen');
+const countdownScreen = document.getElementById('countdown-screen');
+const countdownText = document.getElementById('countdown-text');
+const scoreBoard = document.getElementById('score-board');
+const startBtn = document.getElementById('start-btn');
+
+const startCountdown = () => {
+    countdownScreen.classList.remove('hidden');
+    let count = 3;
+    countdownText.innerText = count;
+    countdownText.style.animation = 'none';
+    void countdownText.offsetWidth;
+    countdownText.style.animation = 'popIn 1s ease-out';
+    
+    let interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            countdownText.innerText = count;
+        } else if (count === 0) {
+            countdownText.innerText = "GO!";
+        } else {
+            clearInterval(interval);
+            countdownScreen.classList.add('hidden');
+            scoreBoard.classList.remove('hidden');
+            init();
+            return;
+        }
+        countdownText.style.animation = 'none';
+        void countdownText.offsetWidth;
+        countdownText.style.animation = 'popIn 1s ease-out';
+    }, 1000);
+};
+
+startBtn.addEventListener('click', () => {
+    startScreen.classList.add('hidden');
+    startCountdown();
+});
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+    document.getElementById('game-over-screen').classList.add('hidden');
+    startCountdown();
+});
+
 window.addEventListener('online', () => {
     let offlineQ = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
     if(offlineQ.length > 0) {
@@ -897,5 +974,3 @@ window.addEventListener('online', () => {
         document.getElementById('offline-badge').style.display = 'none';
     }
 });
-
-init();
