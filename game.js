@@ -596,7 +596,9 @@ function init() {
     
     floatingTexts = new ObjectPool();
     
-    score = 0; cameraScale = 1.3; 
+    score = 0; 
+    let isMobile = window.innerWidth <= 768;
+    cameraScale = isMobile ? 0.7 : 1.0; 
     gameTime = 0; timeAccumulator = 0;
     candiesEaten = 0; 
     nextSnakeSpawnTime = 20; 
@@ -680,7 +682,7 @@ function handleCollisions() {
             
             floatingTexts.spawn(c.x, c.y, `+${pts}`, '#f1c40f');
             player.nodesToAdd += c.type * 2;
-            cameraScale = Math.max(0.5, cameraScale * CONFIG.ZOOM_SHRINK);
+            cameraScale = Math.max(0.4, cameraScale * CONFIG.ZOOM_SHRINK);
             
             candies.splice(i, 1);
             candies.push(new Candy());
