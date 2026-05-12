@@ -88,10 +88,11 @@ class PowerItem {
         this.time += dt * 5;
         let floatY = Math.sin(this.time) * 5;
         
-        ctx.fillStyle = this.type === 'yellow' ? '#f1c40f' : '#2d3436';
-        ctx.strokeStyle = this.type === 'yellow' ? '#fff' : '#e74c3c';
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 15;
+        let isPower = this.type === 'yellow3' || this.type === 'yellow5';
+        ctx.fillStyle = (this.type === 'yellow' || isPower) ? '#f1c40f' : '#2d3436';
+        ctx.strokeStyle = (this.type === 'yellow' || isPower) ? '#fff' : '#e74c3c';
+        ctx.lineWidth = isPower ? 5 : 3;
+        ctx.shadowBlur = isPower ? 25 : 15;
         ctx.shadowColor = ctx.fillStyle;
         
         ctx.beginPath();
@@ -99,11 +100,15 @@ class PowerItem {
         ctx.fill(); ctx.stroke();
         
         ctx.shadowBlur = 0;
-        ctx.fillStyle = this.type === 'yellow' ? '#fff' : '#f1c40f';
+        ctx.fillStyle = (this.type === 'yellow' || isPower) ? '#fff' : '#f1c40f';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = 'bold 24px Arial';
-        ctx.fillText("⚡", this.x, this.y + floatY + 2);
+        ctx.font = `bold ${isPower ? 18 : 24}px Arial`;
+        
+        let icon = "⚡";
+        if (this.type === 'yellow3') icon = "⚡⚡⚡";
+        if (this.type === 'yellow5') icon = "⚡⚡⚡⚡⚡";
+        ctx.fillText(icon, this.x, this.y + floatY + 2);
     }
 }
 
@@ -121,38 +126,104 @@ class EnvironmentObstacle {
     }
     
     draw(ctx) {
+        ctx.save();
+        // Subtle shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.beginPath(); ctx.arc(this.x + 5, this.y + 5, this.radius, 0, Math.PI*2); ctx.fill();
+
         if(this.type === 'tree') {
-            ctx.fillStyle = '#8B4513';
-            ctx.strokeStyle = '#2c3e50';
-            ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.rect(this.x - 12, this.y - 10, 24, 40); ctx.fill(); ctx.stroke();
+            // Trunk
+            ctx.fillStyle = '#5d4037';
+            ctx.strokeStyle = '#3e2723';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(this.x - 10, this.y - 5, 20, 35, 5); ctx.fill(); ctx.stroke();
             
-            ctx.fillStyle = '#27ae60';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y - 30, 35, 0, Math.PI*2);
-            ctx.arc(this.x - 20, this.y - 10, 25, 0, Math.PI*2);
-            ctx.arc(this.x + 20, this.y - 10, 25, 0, Math.PI*2);
-            ctx.fill(); ctx.stroke();
+            // Foliage (Layers)
+            const drawLeaves = (ox, oy, r, color) => {
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.arc(this.x + ox, this.y + oy, r, 0, Math.PI*2); ctx.fill();
+            };
+            drawLeaves(0, -35, 35, '#2e7d32');
+            drawLeaves(-20, -15, 28, '#388e3c');
+            drawLeaves(20, -15, 28, '#388e3c');
+            drawLeaves(0, -45, 20, '#43a047'); // Top layer
             
-            ctx.fillStyle = '#2ecc71';
-            ctx.beginPath(); ctx.arc(this.x - 5, this.y - 35, 15, 0, Math.PI*2); ctx.fill();
+            // Highlights
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.beginPath(); ctx.arc(this.x - 10, this.y - 40, 10, 0, Math.PI*2); ctx.fill();
         } else {
-            ctx.fillStyle = '#95a5a6';
-            ctx.strokeStyle = '#2c3e50';
-            ctx.lineWidth = 4;
+            // Rock
+            let grad = ctx.createRadialGradient(this.x - 10, this.y - 10, 5, this.x, this.y, 40);
+            grad.addColorStop(0, '#b0bec5');
+            grad.addColorStop(1, '#546e7a');
+            ctx.fillStyle = grad;
+            ctx.strokeStyle = '#37474f';
+            ctx.lineWidth = 3;
+            
             ctx.beginPath();
-            ctx.moveTo(this.x - 25, this.y + 15);
-            ctx.lineTo(this.x - 20, this.y - 15);
-            ctx.lineTo(this.x + 10, this.y - 25);
-            ctx.lineTo(this.x + 30, this.y - 5);
-            ctx.lineTo(this.x + 20, this.y + 20);
+            ctx.moveTo(this.x - 30, this.y + 10);
+            ctx.lineTo(this.x - 20, this.y - 20);
+            ctx.lineTo(this.x + 15, this.y - 25);
+            ctx.lineTo(this.x + 35, this.y);
+            ctx.lineTo(this.x + 20, this.y + 25);
             ctx.closePath();
             ctx.fill(); ctx.stroke();
             
-            ctx.fillStyle = '#7f8c8d';
-            ctx.beginPath(); ctx.arc(this.x + 5, this.y - 5, 8, 0, Math.PI*2); ctx.fill();
+            // Cracks
+            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(this.x - 10, this.y - 10); ctx.lineTo(this.x + 5, this.y + 5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(this.x + 10, this.y - 5); ctx.lineTo(this.x + 20, this.y - 15); ctx.stroke();
         }
+        ctx.restore();
     }
+}
+
+class WaterFeature {
+    constructor() {
+        this.w = 300 + Math.random() * 400;
+        this.h = 200 + Math.random() * 300;
+        // 테두리 벽(MAP_SIZE)을 넘지 않도록 위치 계산 (여유 공간 50px)
+        this.x = Math.random() * (MAP_SIZE - this.w - 100) + 50;
+        this.y = Math.random() * (MAP_SIZE - this.h - 100) + 50;
+        this.seed = Math.random() * 100;
+    }
+    draw(ctx) {
+        ctx.save();
+        // Water body
+        let grad = ctx.createLinearGradient(this.x, this.y, this.x + this.w, this.y + this.h);
+        grad.addColorStop(0, '#4fc3f7');
+        grad.addColorStop(1, '#0288d1');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(this.x, this.y, this.w, this.h, 80);
+        ctx.fill();
+        
+        // Shore highlight
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 8;
+        ctx.stroke();
+
+        // Ripples
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 2;
+        for(let i=0; i<3; i++) {
+            let rx = this.x + 50 + (this.seed * 7 + i * 100) % (this.w - 100);
+            let ry = this.y + 50 + (this.seed * 13 + i * 70) % (this.h - 100);
+            ctx.beginPath();
+            ctx.ellipse(rx, ry, 30 + Math.sin(gameTime + i) * 10, 10, 0, 0, Math.PI*2);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+}
+
+function isInWater(x, y) {
+    if (!waterFeatures) return false;
+    for(let wf of waterFeatures) {
+        if(x >= wf.x && x <= wf.x + wf.w && y >= wf.y && y <= wf.y + wf.h) return true;
+    }
+    return false;
 }
 
 // --- Entities ---
@@ -162,6 +233,8 @@ class PlayerSnake {
         this.dir = {x: 0, y: -1}; 
         this.speed = CONFIG.BASE_SPEED; 
         this.nodesToAdd = 0;
+        this.speedEffect = 1;
+        this.speedEffectTimer = 0;
     }
     
     update(dt) {
@@ -170,9 +243,24 @@ class PlayerSnake {
             this.dir = nextDir;
         }
         
+        let currentBaseSpeed = this.speed;
+        if (this.speedEffectTimer > 0) {
+            currentBaseSpeed *= this.speedEffect;
+            this.speedEffectTimer -= dt;
+            if (this.speedEffectTimer <= 0) {
+                this.speedEffect = 1;
+                floatingTexts.spawn(this.nodes[0].x, this.nodes[0].y, "⚡SPEED OFF", "#fff");
+            }
+        }
+
+        // Water Speed Penalty (3배 느리게)
+        if (isInWater(this.nodes[0].x, this.nodes[0].y)) {
+            currentBaseSpeed /= 3;
+        }
+
         const head = this.nodes[0];
-        head.x += this.dir.x * this.speed * dt;
-        head.y += this.dir.y * this.speed * dt;
+        head.x += this.dir.x * currentBaseSpeed * dt;
+        head.y += this.dir.y * currentBaseSpeed * dt;
 
         for(let i = 1; i < this.nodes.length; i++) {
             let curr = this.nodes[i], prev = this.nodes[i-1];
@@ -192,52 +280,98 @@ class PlayerSnake {
     }
     
     draw(ctx) {
-        let baseThickness = 28;
-        let tailThickness = 10;
-        
-        ctx.strokeStyle = '#2c3e50';
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        for (let i = 1; i < this.nodes.length; i++) {
-            let prev = this.nodes[i - 1];
-            let curr = this.nodes[i];
-            let currentThickness = baseThickness - (i / this.nodes.length) * (baseThickness - tailThickness);
-            ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(curr.x, curr.y);
-            ctx.lineWidth = currentThickness + 8; 
-            ctx.stroke();
+        const n = this.nodes.length;
+        const baseT = 30, tailT = 12;
+
+        // Draw segments from tail to head
+        for (let i = n - 1; i >= 0; i--) {
+            const curr = this.nodes[i];
+            const prev = this.nodes[i - 1] || this.nodes[i];
+            const next = this.nodes[i + 1] || this.nodes[i];
+            
+            // Angle for segment rotation
+            const angle = (i === 0) ? Math.atan2(this.dir.y, this.dir.x) : Math.atan2(prev.y - curr.y, prev.x - curr.x);
+            
+            // Thickness
+            const t = baseT - (i / n) * (baseT - tailT);
+            
+            // Rainbow color for player
+            const hue = (gameTime * 50 + i * 15) % 360;
+            const color = `hsl(${hue}, 85%, 60%)`;
+            const darkColor = `hsl(${hue}, 85%, 30%)`;
+
+            ctx.save();
+            ctx.translate(curr.x, curr.y);
+            ctx.rotate(angle);
+
+            if (i === 0) {
+                // --- Head ---
+                // Body
+                ctx.fillStyle = color;
+                ctx.strokeStyle = darkColor;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.roundRect(-15, -18, 36, 36, 12);
+                ctx.fill(); ctx.stroke();
+
+                // Armor Plate on Head
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath(); ctx.roundRect(-5, -12, 20, 24, 5); ctx.fill();
+
+                // Horns
+                ctx.fillStyle = '#f1c40f';
+                ctx.strokeStyle = '#95a5a6';
+                ctx.lineWidth = 2;
+                // Left horn
+                ctx.beginPath(); ctx.moveTo(-10, -15); ctx.lineTo(-25, -25); ctx.lineTo(-15, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
+                // Right horn
+                ctx.beginPath(); ctx.moveTo(-10, 15); ctx.lineTo(-25, 25); ctx.lineTo(-15, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+                // Eyes (Blue for Player)
+                ctx.fillStyle = 'white';
+                ctx.beginPath(); ctx.arc(10, -10, 7, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(10, 10, 7, 0, Math.PI*2); ctx.fill();
+                
+                ctx.fillStyle = '#3498db'; // Bright Blue
+                ctx.beginPath(); ctx.arc(13, -10, 3.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(13, 10, 3.5, 0, Math.PI*2); ctx.fill();
+                
+                // Pupils
+                ctx.fillStyle = 'black';
+                ctx.beginPath(); ctx.arc(14, -10, 1.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(14, 10, 1.5, 0, Math.PI*2); ctx.fill();
+
+            } else {
+                // --- Body Segment ---
+                ctx.fillStyle = color;
+                ctx.strokeStyle = darkColor;
+                ctx.lineWidth = 3;
+                
+                // Draw as a rounded segment
+                const segW = t * 1.2;
+                const segH = t;
+                ctx.beginPath();
+                ctx.roundRect(-segW/2, -segH/2, segW, segH, 8);
+                ctx.fill(); ctx.stroke();
+
+                // Scale/Armor detail
+                ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                ctx.beginPath();
+                ctx.moveTo(-segW/4, -segH/3); ctx.lineTo(segW/4, 0); ctx.lineTo(-segW/4, segH/3);
+                ctx.stroke();
+
+                if (i === n - 1) {
+                    // Tail Tip
+                    ctx.fillStyle = darkColor;
+                    ctx.beginPath();
+                    ctx.moveTo(-segW/2, -segH/2); ctx.lineTo(-segW*1.2, 0); ctx.lineTo(-segW/2, segH/2);
+                    ctx.closePath(); ctx.fill();
+                }
+            }
+            ctx.restore();
         }
 
-        for (let i = 1; i < this.nodes.length; i++) {
-            let prev = this.nodes[i - 1];
-            let curr = this.nodes[i];
-            let currentThickness = baseThickness - (i / this.nodes.length) * (baseThickness - tailThickness);
-            ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(curr.x, curr.y);
-            ctx.strokeStyle = `hsl(${(i * 5) % 360}, 100%, 60%)`;
-            ctx.lineWidth = currentThickness;
-            ctx.stroke();
-        }
-
-        let head = this.nodes[0];
-        let angle = Math.atan2(this.dir.y, this.dir.x);
-        let eyeOffset = 8;
-        
-        ctx.fillStyle = 'white';
-        ctx.strokeStyle = '#2c3e50';
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(head.x + Math.cos(angle - 1.2) * eyeOffset, head.y + Math.sin(angle - 1.2) * eyeOffset, 6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.arc(head.x + Math.cos(angle + 1.2) * eyeOffset, head.y + Math.sin(angle + 1.2) * eyeOffset, 6, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        
-        ctx.fillStyle = '#2c3e50';
-        ctx.beginPath(); ctx.arc(head.x + Math.cos(angle - 1.2) * eyeOffset + Math.cos(angle)*2, head.y + Math.sin(angle - 1.2) * eyeOffset + Math.sin(angle)*2, 2.5, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(head.x + Math.cos(angle + 1.2) * eyeOffset + Math.cos(angle)*2, head.y + Math.sin(angle + 1.2) * eyeOffset + Math.sin(angle)*2, 2.5, 0, Math.PI*2); ctx.fill();
-        
-        if(Math.random() > 0.90) {
-            ctx.fillStyle = '#ff4757';
-            ctx.beginPath();
-            ctx.moveTo(head.x + Math.cos(angle)*15, head.y + Math.sin(angle)*15);
-            ctx.lineTo(head.x + Math.cos(angle - 0.2)*28, head.y + Math.sin(angle - 0.2)*28);
-            ctx.lineTo(head.x + Math.cos(angle + 0.2)*28, head.y + Math.sin(angle + 0.2)*28);
-            ctx.fill(); ctx.stroke();
-        }
+        // (혀 낼름거리는 효과 삭제됨)
     }
 }
 
@@ -313,6 +447,7 @@ class ObstacleSnake {
             if(this.sleepTimer <= 0) {
                 this.state = STATE.OBS_CHASING;
                 this.hitCount = 3;
+                this.isEdible = false; // 기상 시 포식 불가
                 floatingTexts.spawn(this.nodes[0].x, this.nodes[0].y - 40, "💢기상!", "#ff4757");
             }
         }
@@ -326,9 +461,12 @@ class ObstacleSnake {
             let dx = targetX - head.x, dy = targetY - head.y;
             let dist = Math.hypot(dx, dy);
             
+            let speed = currentEnemySpeed;
+            if (isInWater(head.x, head.y)) speed /= 3; // 3배 느리게
+
             if(dist > 0) {
-                head.x += (dx/dist) * currentEnemySpeed * dt;
-                head.y += (dy/dist) * currentEnemySpeed * dt;
+                head.x += (dx/dist) * speed * dt;
+                head.y += (dy/dist) * speed * dt;
             }
             
             for(let i = 1; i < this.nodes.length; i++) {
@@ -344,97 +482,96 @@ class ObstacleSnake {
     }
     
     draw(ctx) {
-        let baseThickness = 24;
-        let tailThickness = 8;
-        
-        ctx.strokeStyle = '#2c3e50';
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        for (let i = 1; i < this.nodes.length; i++) {
-            let prev = this.nodes[i - 1];
-            let curr = this.nodes[i];
-            let currentThickness = baseThickness - (i / this.nodes.length) * (baseThickness - tailThickness);
-            ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(curr.x, curr.y);
-            ctx.lineWidth = currentThickness + 8;
-            ctx.stroke();
-        }
-        
-        for (let i = 1; i < this.nodes.length; i++) {
-            let prev = this.nodes[i - 1];
-            let curr = this.nodes[i];
-            let currentThickness = baseThickness - (i / this.nodes.length) * (baseThickness - tailThickness);
-            ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(curr.x, curr.y);
+        const n = this.nodes.length;
+        const baseT = 26, tailT = 10;
+        const isSleeping = this.state < STATE.OBS_CHASING;
+
+        // Base color theme for this enemy
+        const hue = this.baseHue;
+        const bodyColor = isSleeping ? `hsl(${hue}, 20%, 40%)` : `hsl(${hue}, 85%, 50%)`;
+        const darkColor = `hsl(${hue}, 85%, 20%)`;
+
+        for (let i = n - 1; i >= 0; i--) {
+            const curr = this.nodes[i];
+            const prev = this.nodes[i - 1] || this.nodes[i];
+            const next = this.nodes[i + 1] || this.nodes[i];
+            const angle = (i === 0) ? Math.atan2(curr.y - next.y, curr.x - next.x) : Math.atan2(prev.y - curr.y, prev.x - curr.x);
             
-            if (this.state === STATE.OBS_CHASING) {
-                if (this.patternType === 0) {
-                    ctx.strokeStyle = `hsl(${this.baseHue}, 90%, 55%)`; 
-                } else if (this.patternType === 1) {
-                    ctx.strokeStyle = (i % 2 === 0) ? `hsl(${this.baseHue}, 90%, 55%)` : '#2c3e50'; 
-                } else if (this.patternType === 2) {
-                    ctx.strokeStyle = `hsl(${this.baseHue + i * 12}, 90%, 55%)`; 
-                } else if (this.patternType === 3) {
-                    ctx.strokeStyle = `hsl(${this.baseHue}, 90%, 55%)`; 
+            // Adjust size if sleeping
+            const sizeScale = isSleeping ? 0.7 : 1.0;
+            const t = (baseT - (i / n) * (baseT - tailT)) * sizeScale;
+
+            ctx.save();
+            ctx.translate(curr.x, curr.y);
+            ctx.rotate(angle);
+
+            if (i === 0) {
+                // --- Enemy Head ---
+                ctx.fillStyle = bodyColor;
+                ctx.strokeStyle = darkColor;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.roundRect(-12, -15, 30, 30, 10);
+                ctx.fill(); ctx.stroke();
+
+                if (isSleeping) {
+                    // Closed eyes
+                    ctx.strokeStyle = darkColor;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(8, -6, 4, 0, Math.PI); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(8, 6, 4, 0, Math.PI); ctx.stroke();
+                    
+                    // Zzz
+                    let zTxt = this.state === STATE.OBS_RED ? '!!' : 'zZ';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillStyle = 'white';
+                    ctx.fillText(zTxt, 15, -15);
+                } else {
+                    // Horns
+                    ctx.fillStyle = '#95a5a6';
+                    ctx.beginPath(); ctx.moveTo(-5, -12); ctx.lineTo(-15, -18); ctx.lineTo(-10, -8); ctx.closePath(); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(-5, 12); ctx.lineTo(-15, 18); ctx.lineTo(-10, 8); ctx.closePath(); ctx.fill();
+
+                    // Eyes (Red for Enemies)
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath(); ctx.arc(8, -8, 6, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(8, 8, 6, 0, Math.PI*2); ctx.fill();
+                    
+                    ctx.fillStyle = '#e74c3c'; // Bright Red
+                    ctx.beginPath(); ctx.arc(10, -8, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(10, 8, 3, 0, Math.PI*2); ctx.fill();
                 }
             } else {
-                const fillColors = ['#95a5a6', '#e67e22', '#ff4757'];
-                ctx.strokeStyle = fillColors[this.state];
-            }
-            
-            ctx.lineWidth = currentThickness;
-            ctx.stroke();
-        }
-        
-        if (this.state === STATE.OBS_CHASING && this.patternType === 3) {
-            ctx.fillStyle = '#ffffff';
-            for (let i = 2; i < this.nodes.length - 2; i += 2) {
-                let curr = this.nodes[i];
-                let currentThickness = baseThickness - (i / this.nodes.length) * (baseThickness - tailThickness);
+                // --- Enemy Body Segment ---
+                ctx.fillStyle = bodyColor;
+                ctx.strokeStyle = darkColor;
+                ctx.lineWidth = 2.5;
+                
+                const segW = t * 1.1;
+                const segH = t;
                 ctx.beginPath();
-                ctx.arc(curr.x, curr.y, currentThickness * 0.35, 0, Math.PI*2);
-                ctx.fill();
+                ctx.roundRect(-segW/2, -segH/2, segW, segH, 6);
+                ctx.fill(); ctx.stroke();
+                
+                // Segment detail
+                ctx.fillStyle = 'rgba(0,0,0,0.1)';
+                ctx.beginPath(); ctx.arc(0, 0, t/3, 0, Math.PI*2); ctx.fill();
             }
+            ctx.restore();
         }
 
-        let head = this.nodes[0];
-        let angle = this.nodes.length > 1 ? Math.atan2(head.y - this.nodes[1].y, head.x - this.nodes[1].x) : 0;
-        let eyeOffset = 8;
-        
-        if (this.state < STATE.OBS_CHASING) {
-            ctx.strokeStyle = '#2c3e50';
-            ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.arc(head.x + Math.cos(angle - 1.2) * eyeOffset, head.y + Math.sin(angle - 1.2) * eyeOffset, 4, 0, Math.PI, false); ctx.stroke();
-            ctx.beginPath(); ctx.arc(head.x + Math.cos(angle + 1.2) * eyeOffset, head.y + Math.sin(angle + 1.2) * eyeOffset, 4, 0, Math.PI, false); ctx.stroke();
-            
-            let zTxt = "";
-            if (this.state === STATE.OBS_RED) {
-                zTxt = "!?";
-                ctx.fillStyle = '#ff4757';
-            } else {
-                let zTime = Date.now() / 600;
-                let zIdx = Math.floor(zTime) % 3;
-                zTxt = zIdx === 0 ? "Z" : zIdx === 1 ? "Zz" : "Zzz";
-                ctx.fillStyle = '#fff';
-            }
-            
-            ctx.strokeStyle = '#2c3e50';
-            ctx.lineWidth = 4;
-            ctx.font = '900 28px Nunito';
-            ctx.strokeText(zTxt, head.x + 10, head.y - 25);
-            ctx.fillText(zTxt, head.x + 10, head.y - 25);
-        } else {
-            ctx.fillStyle = 'white';
-            ctx.strokeStyle = '#2c3e50';
-            ctx.lineWidth = 3;
-            
+        // Awakening Countdown (3초 전부터 머리 위에 표시)
+        if (isSleeping && this.sleepTimer <= 3 && this.sleepTimer > 0) {
+            let head = this.nodes[0];
+            let count = Math.ceil(this.sleepTimer);
             ctx.save();
-            ctx.translate(head.x, head.y);
-            ctx.rotate(angle);
-            
-            ctx.beginPath(); ctx.moveTo(2, -eyeOffset); ctx.lineTo(12, -eyeOffset-6); ctx.lineTo(12, -eyeOffset+6); ctx.closePath(); ctx.fill(); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(2, eyeOffset); ctx.lineTo(12, eyeOffset-6); ctx.lineTo(12, eyeOffset+6); ctx.closePath(); ctx.fill(); ctx.stroke();
-            
-            ctx.fillStyle = '#2c3e50';
-            ctx.beginPath(); ctx.arc(6, -eyeOffset, 2.5, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(6, eyeOffset, 2.5, 0, Math.PI*2); ctx.fill();
+            ctx.font = 'bold 36px Arial';
+            ctx.fillStyle = '#ff4757';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 5;
+            ctx.textAlign = 'center';
+            ctx.strokeText(count, head.x, head.y - 40);
+            ctx.fillText(count, head.x, head.y - 40);
             ctx.restore();
         }
     }
@@ -443,7 +580,7 @@ class ObstacleSnake {
 class Candy {
     constructor() {
         this.type = Math.floor(Math.random() * 10) + 1; 
-        this.radius = CONFIG.CANDY_BASE + (this.type * 1.5);
+        this.radius = 24; // 무지개 아이템과 동일한 크기
         this.spawn();
     }
     
@@ -457,19 +594,30 @@ class Candy {
     }
     
     draw(ctx) {
-        let color = `hsl(${this.type * 36}, 100%, 65%)`; 
+        let hue = this.type * 36;
+        let color = `hsl(${hue}, 100%, 65%)`; 
         ctx.fillStyle = color;
         ctx.strokeStyle = '#2c3e50';
         ctx.lineWidth = 3;
         
-        let wrapperSize = this.radius * 0.9;
-        
-        ctx.beginPath(); ctx.moveTo(this.x - this.radius * 0.4, this.y); ctx.lineTo(this.x - this.radius - wrapperSize, this.y - wrapperSize); ctx.lineTo(this.x - this.radius - wrapperSize, this.y + wrapperSize); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(this.x + this.radius * 0.4, this.y); ctx.lineTo(this.x + this.radius + wrapperSize, this.y - wrapperSize); ctx.lineTo(this.x + this.radius + wrapperSize, this.y + wrapperSize); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.beginPath(); ctx.arc(this.x - this.radius*0.3, this.y - this.radius*0.3, this.radius*0.3, 0, Math.PI*2); ctx.fill();
+        // Draw circular container
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Shiny effect
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.arc(this.x - this.radius*0.3, this.y - this.radius*0.3, this.radius*0.3, 0, Math.PI*2);
+        ctx.fill();
+
+        // Candy icon
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `${this.radius * 1.2}px Arial`;
+        ctx.fillText("🍬", this.x, this.y + 2);
     }
 }
 
@@ -501,58 +649,7 @@ class RainbowCandy {
     }
 }
 
-// --- Snowman Item (Kill Magic) ---
-class SnowmanItem {
-    constructor() {
-        this.radius = 24;
-        let valid = false;
-        while(!valid) {
-            this.x = Math.random() * (MAP_SIZE - 400) + 200;
-            this.y = Math.random() * (MAP_SIZE - 400) + 200;
-            valid = true;
-        }
-        this.floatY = 0;
-        this.time = 0;
-    }
-    
-    draw(ctx, dt) {
-        this.time += dt * 3;
-        this.floatY = Math.sin(this.time) * 5;
-        
-        ctx.save();
-        ctx.translate(this.x, this.y + this.floatY);
-        
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#00ffff';
-        
-        // Body (bottom)
-        ctx.fillStyle = '#fff';
-        ctx.strokeStyle = '#2c3e50';
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(0, 8, 14, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        
-        // Head (top)
-        ctx.beginPath(); ctx.arc(0, -10, 11, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        
-        ctx.shadowBlur = 0;
-        
-        // Eyes
-        ctx.fillStyle = '#2c3e50';
-        ctx.beginPath(); ctx.arc(-4, -12, 2, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(4, -12, 2, 0, Math.PI*2); ctx.fill();
-        
-        // Nose (Carrot)
-        ctx.fillStyle = '#e67e22';
-        ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(10, -6); ctx.lineTo(0, -3); ctx.closePath(); ctx.fill();
-        
-        // Scarf
-        ctx.strokeStyle = '#e74c3c';
-        ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(-9, -1); ctx.lineTo(9, -1); ctx.stroke();
-        
-        ctx.restore();
-    }
-}
+// (눈사람 아이템 클래스 삭제됨)
 
 class ObjectPool {
     constructor() { this.pool = []; }
@@ -581,10 +678,10 @@ class ObjectPool {
 }
 
 // --- Game Manager ---
-let player, obstacleSnakes = [], envObstacles = [], candies = [], rainbowCandies = [], snowmen = [], powerItems = [], floatingTexts;
+let player, obstacleSnakes = [], envObstacles = [], waterFeatures = [], candies = [], rainbowCandies = [], powerItems = [], floatingTexts;
 let score = 0, cameraScale = 1, gameTime = 0, timeAccumulator = 0;
 let sessionUUID, lastTime = 0, isGameOver = false;
-let candiesEaten = 0, nextSnakeSpawnTime = 20, nextPowerItemTime = 10, nextRainbowCandyTime = 40, nextSnowmanTime = 55;
+let candiesEaten = 0, nextSnakeSpawnTime = 20, nextPowerItemTime = 10, nextRainbowCandyTime = 15;
 let enemySpeedBonus = 0;
 
 function spawnRainbowCandy() {
@@ -592,16 +689,34 @@ function spawnRainbowCandy() {
     floatingTexts.spawn(player.nodes[0].x, player.nodes[0].y - 120, "🌈 무지개 사탕 스폰!", "#0ff");
 }
 
-function spawnSnowman() {
-    snowmen.push(new SnowmanItem());
-    floatingTexts.spawn(player.nodes[0].x, player.nodes[0].y - 120, "⛄ 눈사람 아이템 스폰!", "#00ffff");
-}
+// (spawnSnowman 함수 삭제됨)
 
 function init() {
     player = new PlayerSnake();
     
     envObstacles = [];
     for(let i=0; i<35; i++) envObstacles.push(new EnvironmentObstacle(Math.random() > 0.5 ? 'tree' : 'rock'));
+
+    waterFeatures = [];
+    for(let i=0; i<6; i++) {
+        let valid = false;
+        let wf;
+        let attempts = 0;
+        while(!valid && attempts < 50) {
+            wf = new WaterFeature();
+            valid = true;
+            for(let other of waterFeatures) {
+                // 겹침 방지 (약간의 여유 공간 50px 추가)
+                if (!(wf.x + wf.w + 50 < other.x || wf.x > other.x + other.w + 50 ||
+                      wf.y + wf.h + 50 < other.y || wf.y > other.y + other.h + 50)) {
+                    valid = false;
+                    break;
+                }
+            }
+            attempts++;
+        }
+        waterFeatures.push(wf);
+    }
 
     obstacleSnakes = [];
     obstacleSnakes.push(new ObstacleSnake());
@@ -610,7 +725,6 @@ function init() {
     
     candies = [];
     rainbowCandies = [];
-    snowmen = [];
     powerItems = [];
     for(let i=0; i<10; i++) candies.push(new Candy());
     
@@ -623,8 +737,7 @@ function init() {
     candiesEaten = 0; 
     nextSnakeSpawnTime = 20; 
     nextPowerItemTime = 15;
-    nextRainbowCandyTime = 40; 
-    nextSnowmanTime = 55; // 눈사람은 게임 시작 55초 후 최초 스폰
+    nextRainbowCandyTime = 15; 
     enemySpeedBonus = 0;
     
     sessionUUID = uuidv4();
@@ -684,6 +797,14 @@ function handleCollisions() {
             if(item.type === 'yellow') {
                 player.speed += 5;
                 floatingTexts.spawn(item.x, item.y, "⚡내 속도 +5", "#f1c40f");
+            } else if(item.type === 'yellow3') {
+                player.speedEffect = 3;
+                player.speedEffectTimer = 3;
+                floatingTexts.spawn(item.x, item.y, "⚡x3 SPEED (3s)!", "#f1c40f");
+            } else if(item.type === 'yellow5') {
+                player.speedEffect = 5;
+                player.speedEffectTimer = 5;
+                floatingTexts.spawn(item.x, item.y, "⚡x5 SPEED (5s)!", "#f1c40f");
             } else {
                 enemySpeedBonus += 3;
                 floatingTexts.spawn(item.x, item.y, "☠️적 속도 +3", "#ff4757");
@@ -717,52 +838,62 @@ function handleCollisions() {
         }
     }
     
-    // 2. 무지개 사탕 (수면 마법)
+    // 2. 무지개 사탕 (수면 + 포식 마법)
     for(let i = rainbowCandies.length - 1; i >= 0; i--) {
         let rc = rainbowCandies[i];
         if(Math.hypot(pHead.x - rc.x, pHead.y - rc.y) < 18 + rc.radius) {
             score += 50;
             document.getElementById('score').innerText = score;
-            floatingTexts.spawn(rc.x, rc.y, "✨수면 마법 발동!✨", "#0ff");
+            floatingTexts.spawn(rc.x, rc.y, "✨포식 마법 발동!✨", "#0ff");
             
             obstacleSnakes.forEach(obs => {
-                if(obs.state === STATE.OBS_CHASING) {
-                    obs.state = STATE.OBS_BLACK;
-                    obs.hitCount = 0;
-                    obs.hitCooldown = 1.0; 
-                    obs.sleepTimer = 15.0; 
-                    
-                    obs.cx = obs.nodes[0].x;
-                    obs.cy = obs.nodes[0].y;
-                    obs.recoil();
-                    
-                    floatingTexts.spawn(obs.cx, obs.cy - 50, "Zzz...", "#fff");
-                }
+                obs.state = STATE.OBS_BLACK;
+                obs.hitCount = 0;
+                obs.hitCooldown = 1.0; 
+                obs.sleepTimer = 15.0; 
+                obs.isEdible = true;
+                
+                // 뱀들이 겹치지 않게 서로 밀어내기 (머리 기준)
+                obstacleSnakes.forEach(other => {
+                    if (obs === other) return;
+                    let dx = obs.nodes[0].x - other.nodes[0].x;
+                    let dy = obs.nodes[0].y - other.nodes[0].y;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist < 100) { // 겹침 판정 거리
+                        let push = (100 - dist) / 2;
+                        let ang = Math.atan2(dy, dx);
+                        if (dist === 0) ang = Math.random() * Math.PI * 2;
+                        obs.nodes.forEach(n => { n.x += Math.cos(ang) * push; n.y += Math.sin(ang) * push; });
+                        other.nodes.forEach(n => { n.x -= Math.cos(ang) * push; n.y -= Math.sin(ang) * push; });
+                    }
+                });
+
+                // ("먹어줘!" 텍스트 제거됨)
             });
             
             rainbowCandies.splice(i, 1);
         }
     }
 
-    // 2.5 눈사람 아이템 (즉사 마법)
-    for(let i = snowmen.length - 1; i >= 0; i--) {
-        let sm = snowmen[i];
-        if(Math.hypot(pHead.x - sm.x, pHead.y - sm.y) < 18 + sm.radius) {
-            score += 100; // 큰 점수 보상
-            document.getElementById('score').innerText = score;
-            
-            let destroyedCount = 0;
-            for (let j = obstacleSnakes.length - 1; j >= 0; j--) {
-                if (obstacleSnakes[j].state === STATE.OBS_CHASING) {
-                    floatingTexts.spawn(obstacleSnakes[j].nodes[0].x, obstacleSnakes[j].nodes[0].y, "💥눈보라!", "#00ffff");
-                    obstacleSnakes.splice(j, 1); // 쫓아오는 뱀 배열에서 즉시 제거
-                    destroyedCount++;
+    // 2.2 잠든 뱀 잡아먹기
+    for(let i = obstacleSnakes.length - 1; i >= 0; i--) {
+        let obs = obstacleSnakes[i];
+        if(obs.isEdible) {
+            // 뱀의 머리나 마디 어디든 닿으면 먹을 수 있게 처리
+            for(let node of obs.nodes) {
+                if(Math.hypot(pHead.x - node.x, pHead.y - node.y) < 35) {
+                    score += 200;
+                    document.getElementById('score').innerText = score;
+                    floatingTexts.spawn(node.x, node.y, "냠냠! +200", "#0ff");
+                    player.nodesToAdd += 10;
+                    obstacleSnakes.splice(i, 1);
+                    break;
                 }
             }
-            floatingTexts.spawn(sm.x, sm.y, `⛄얼음 마법! ${destroyedCount}마리 제거!`, "#00ffff");
-            snowmen.splice(i, 1);
         }
     }
+
+// (눈사람 충돌 로직 삭제됨)
     
     // 3. 환경 장애물(나무, 바위) 
     for(let env of envObstacles) {
@@ -830,18 +961,19 @@ function gameLoop(timestamp) {
     }
     
     if(gameTime >= nextPowerItemTime) {
-        powerItems.push(new PowerItem(Math.random() > 0.5 ? 'yellow' : 'black'));
-        nextPowerItemTime += 15 + Math.random() * 10;
+            let rnd = Math.random();
+            let type = 'yellow';
+            if (rnd > 0.9) type = 'yellow5';
+            else if (rnd > 0.7) type = 'yellow3';
+            else if (rnd > 0.4) type = 'black';
+            
+            powerItems.push(new PowerItem(type));
+            nextPowerItemTime += 15 + Math.random() * 10;
     }
     
     if(gameTime >= nextRainbowCandyTime) {
         spawnRainbowCandy();
-        nextRainbowCandyTime += 30 + Math.random() * 20;
-    }
-
-    if(gameTime >= nextSnowmanTime) {
-        spawnSnowman();
-        nextSnowmanTime += 30 + Math.random() * 20; // 무지개 사탕과 동일한 희소성
+        nextRainbowCandyTime += 15 + Math.random() * 15;
     }
     
     if(gameTime >= nextSnakeSpawnTime) {
@@ -894,11 +1026,11 @@ function gameLoop(timestamp) {
     ctx.lineWidth = 10;
     ctx.strokeRect(-15, -15, MAP_SIZE+30, MAP_SIZE+30);
 
+    waterFeatures.forEach(wf => wf.draw(ctx));
     envObstacles.forEach(env => env.draw(ctx));
     candies.forEach(c => c.draw(ctx));
     powerItems.forEach(pi => pi.draw(ctx, dt));
     rainbowCandies.forEach(rc => rc.draw(ctx, dt));
-    snowmen.forEach(sm => sm.draw(ctx, dt));
     obstacleSnakes.forEach(obs => obs.draw(ctx));
     player.draw(ctx);
     floatingTexts.updateAndDraw(ctx, dt);
