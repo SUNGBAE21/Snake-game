@@ -7,7 +7,7 @@ const CONFIG = {
     ZOOM_SHRINK: 0.99 
 };
 
-const STATE = { OBS_BLACK: 0, OBS_YELLOW: 1, OBS_RED: 2, OBS_CHASING: 3 };
+const STATE = { OBS_BLACK: 0, OBS_YELLOW: 1, OBS_RED: 2, OBS_CHASING: 3, OBS_WANDERING: 4 };
 const MAP_SIZE = 3000; 
 
 // --- Utils & Cryptography ---
@@ -235,9 +235,13 @@ class PlayerSnake {
         this.nodesToAdd = 0;
         this.speedEffect = 1;
         this.speedEffectTimer = 0;
+        this.scale = 1.0;
+        this.lv = 1;
+        this.invincibleTimer = 0;
     }
     
     update(dt) {
+        if (this.invincibleTimer > 0) this.invincibleTimer -= dt;
         if (inputQueue.length > 0) {
             const nextDir = inputQueue.shift();
             this.dir = nextDir;
@@ -266,9 +270,10 @@ class PlayerSnake {
             let curr = this.nodes[i], prev = this.nodes[i-1];
             let dx = prev.x - curr.x, dy = prev.y - curr.y;
             let dist = Math.sqrt(dx*dx + dy*dy);
-            if(dist > CONFIG.NODE_DIST) {
-                curr.x += (dx/dist) * (dist - CONFIG.NODE_DIST);
-                curr.y += (dy/dist) * (dist - CONFIG.NODE_DIST);
+            let targetDist = CONFIG.NODE_DIST * this.scale;
+            if(dist > targetDist) {
+                curr.x += (dx/dist) * (dist - targetDist);
+                curr.y += (dy/dist) * (dist - targetDist);
             }
         }
 
@@ -296,13 +301,14 @@ class PlayerSnake {
             const t = baseT - (i / n) * (baseT - tailT);
             
             // Rainbow color for player
-            const hue = (gameTime * 50 + i * 15) % 360;
+            const hue = (this.invincibleTimer > 0) ? (gameTime * 1000 + i * 30) % 360 : (gameTime * 50 + i * 15) % 360;
             const color = `hsl(${hue}, 85%, 60%)`;
             const darkColor = `hsl(${hue}, 85%, 30%)`;
 
             ctx.save();
             ctx.translate(curr.x, curr.y);
             ctx.rotate(angle);
+            ctx.scale(this.scale, this.scale);
 
             if (i === 0) {
                 // --- Head ---
@@ -371,7 +377,18 @@ class PlayerSnake {
             ctx.restore();
         }
 
-        // (혀 낼름거리는 효과 삭제됨)
+        let pHead = this.nodes[0];
+        ctx.save();
+        ctx.translate(pHead.x, pHead.y);
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Lv.${this.lv}`, 0, -35 * this.scale);
+        if(this.invincibleTimer > 0) {
+            ctx.fillStyle = '#0ff';
+            ctx.fillText(`⭐ ${(this.invincibleTimer).toFixed(1)}s`, 0, -60 * this.scale);
+        }
+        ctx.restore();
     }
 }
 
@@ -395,10 +412,13 @@ class ObstacleSnake {
             y: this.cy + i * 2 
         }));
         
-        this.state = STATE.OBS_CHASING; 
+        this.state = STATE.OBS_WANDERING; 
         this.hitCount = 3;
         this.hitCooldown = 0;
         this.sleepTimer = 0; 
+        this.lv = Math.min(95, Math.max(1, (player ? player.lv : 1) + Math.floor((Math.random() - 0.5) * 5)));
+        this.scale = 1.0 + (this.lv - 1) * 0.02;
+        this.wanderAngle = Math.random() * Math.PI * 2;
         
         this.id = Math.random() * Math.PI * 2; 
         this.baseHue = Math.floor(Math.random() * 360);
@@ -435,7 +455,7 @@ class ObstacleSnake {
     update(dt, player, currentEnemySpeed) {
         if(this.hitCooldown > 0) this.hitCooldown -= dt;
         
-        if(this.state !== STATE.OBS_CHASING && this.sleepTimer > 0) {
+        if(this.state !== STATE.OBS_CHASING && this.state !== STATE.OBS_WANDERING && this.sleepTimer > 0) {
             this.sleepTimer -= dt;
             
             if(this.sleepTimer <= 2.0 && this.state < STATE.OBS_RED) {
@@ -452,7 +472,19 @@ class ObstacleSnake {
             }
         }
         
-        if(this.state === STATE.OBS_CHASING) {
+        if(this.state === STATE.OBS_WANDERING) {
+            let head = this.nodes[0], pHead = player.nodes[0];
+            let speed = currentEnemySpeed * 0.4;
+            if (isInWater(head.x, head.y)) speed /= 3;
+            
+            this.wanderAngle += (Math.random() - 0.5) * 0.2;
+            head.x += Math.cos(this.wanderAngle) * speed * dt;
+            head.y += Math.sin(this.wanderAngle) * speed * dt;
+            
+            if (this.lv >= player.lv && Math.hypot(head.x - pHead.x, head.y - pHead.y) < 250 * Math.max(this.scale, player.scale)) {
+                this.state = STATE.OBS_CHASING;
+            }
+        } else if(this.state === STATE.OBS_CHASING) {
             let head = this.nodes[0], pHead = player.nodes[0];
             
             let targetX = pHead.x + Math.cos(this.id + gameTime) * 60;
@@ -468,14 +500,17 @@ class ObstacleSnake {
                 head.x += (dx/dist) * speed * dt;
                 head.y += (dy/dist) * speed * dt;
             }
-            
+        }
+
+        if(this.state === STATE.OBS_WANDERING || this.state === STATE.OBS_CHASING) {
+            let targetDist = CONFIG.NODE_DIST * this.scale;
             for(let i = 1; i < this.nodes.length; i++) {
                 let curr = this.nodes[i], prev = this.nodes[i-1];
                 let px = prev.x - curr.x, py = prev.y - curr.y;
                 let d = Math.hypot(px, py);
-                if(d > CONFIG.NODE_DIST) {
-                    curr.x += (px/d) * (d - CONFIG.NODE_DIST);
-                    curr.y += (py/d) * (d - CONFIG.NODE_DIST);
+                if(d > targetDist) {
+                    curr.x += (px/d) * (d - targetDist);
+                    curr.y += (py/d) * (d - targetDist);
                 }
             }
         }
@@ -504,6 +539,7 @@ class ObstacleSnake {
             ctx.save();
             ctx.translate(curr.x, curr.y);
             ctx.rotate(angle);
+            ctx.scale(this.scale, this.scale);
 
             if (i === 0) {
                 // --- Enemy Head ---
@@ -560,6 +596,14 @@ class ObstacleSnake {
             ctx.restore();
         }
 
+        let head = this.nodes[0];
+        ctx.save();
+        ctx.font = 'bold 18px Arial';
+        ctx.fillStyle = (typeof player !== 'undefined' && this.lv > player.lv) ? '#ff4757' : 'white';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Lv.${this.lv}`, head.x, head.y - 30 * this.scale);
+        ctx.restore();
+
         // Awakening Countdown (3초 전부터 머리 위에 표시)
         if (isSleeping && this.sleepTimer <= 3 && this.sleepTimer > 0) {
             let head = this.nodes[0];
@@ -586,10 +630,29 @@ class Candy {
     
     spawn() {
         let valid = false;
-        while(!valid) {
-            this.x = Math.random() * (MAP_SIZE - 200) + 100; 
-            this.y = Math.random() * (MAP_SIZE - 200) + 100;
+        let attempts = 0;
+        let pHead = (typeof player !== 'undefined' && player.nodes) ? player.nodes[0] : {x: MAP_SIZE/2, y: MAP_SIZE/2};
+        while(!valid && attempts < 50) {
+            this.x = pHead.x + (Math.random() - 0.5) * 4000; 
+            this.y = pHead.y + (Math.random() - 0.5) * 4000;
             valid = true;
+            if (typeof envObstacles !== 'undefined') {
+                for (let env of envObstacles) {
+                    if (Math.hypot(this.x - env.x, this.y - env.y) < env.radius + this.radius + 10) {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+            if (valid && typeof candies !== 'undefined') {
+                for (let c of candies) {
+                    if (c !== this && Math.hypot(this.x - c.x, this.y - c.y) < 150) {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+            attempts++;
         }
     }
     
@@ -686,7 +749,6 @@ let enemySpeedBonus = 0;
 
 function spawnRainbowCandy() {
     rainbowCandies.push(new RainbowCandy());
-    floatingTexts.spawn(player.nodes[0].x, player.nodes[0].y - 120, "🌈 무지개 사탕 스폰!", "#0ff");
 }
 
 // (spawnSnowman 함수 삭제됨)
@@ -726,7 +788,7 @@ function init() {
     candies = [];
     rainbowCandies = [];
     powerItems = [];
-    for(let i=0; i<10; i++) candies.push(new Candy());
+    for(let i=0; i<100; i++) candies.push(new Candy());
     
     floatingTexts = new ObjectPool();
     
@@ -752,37 +814,32 @@ function init() {
 
 function processRankingSync() {
     const payload = { uuid: sessionUUID, data: encryptData({ score, timestamp: Date.now() }) };
-    if(!navigator.onLine) {
-        document.getElementById('offline-badge').style.display = 'block';
-        let offlineQ = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-        offlineQ.push(payload);
-        localStorage.setItem('offlineQueue', JSON.stringify(offlineQ));
-    } else {
-        document.getElementById('offline-badge').style.display = 'none';
-    }
+    !navigator.onLine ? (document.getElementById('offline-badge').style.display = 'block', localStorage.setItem('offlineQueue', JSON.stringify([...JSON.parse(localStorage.getItem('offlineQueue') || '[]'), payload]))) : (document.getElementById('offline-badge').style.display = 'none');
     
-    let ranks = JSON.parse(localStorage.getItem('mockRanking') || '[200, 150, 100, 50, 20]');
-    ranks.push(score);
-    ranks.sort((a,b) => b-a);
-    ranks = ranks.slice(0, 5);
-    localStorage.setItem('mockRanking', JSON.stringify(ranks));
+    let now = Date.now(), records = JSON.parse(localStorage.getItem('gameRankingRecords') || '[]').filter(r => now - r.date <= 2592000000);
+    let nameInput = document.getElementById('playerNameInput')?.value.trim();
+    let name = nameInput ? nameInput : (() => {
+        let i = 1, cand;
+        while (records.some(r => r.name === (cand = `USER${i.toString().padStart(2, '0')}`))) i++;
+        return cand;
+    })();
     
-    const rankList = document.getElementById('ranking-list');
-    rankList.innerHTML = '';
-    ranks.forEach((r, i) => {
-        let li = document.createElement('li');
-        li.innerText = `#${i+1} 🏆 ${r} pts ${r === score ? '✨(YOU)✨' : ''}`;
-        rankList.appendChild(li);
-    });
+    records.push({ name, score, date: now, isYou: true });
+    records.sort((a,b) => b.score - a.score);
+    localStorage.setItem('gameRankingRecords', JSON.stringify(records.map(r => ({name: r.name, score: r.score, date: r.date})).slice(0, 50)));
+    
+    document.getElementById('ranking-list').innerHTML = records.slice(0, 5).map((r, i) => `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts ${r.isYou ? '✨(YOU)✨' : ''}</li>`).join('');
 }
 
 function checkGameOverCondition() {
     let pHead = player.nodes[0];
-    if(pHead.x < 0 || pHead.x > MAP_SIZE || pHead.y < 0 || pHead.y > MAP_SIZE) return true;
     
     for(let obs of obstacleSnakes) {
-        let oHead = obs.nodes[0];
-        if(obs.state === STATE.OBS_CHASING && Math.hypot(pHead.x - oHead.x, pHead.y - oHead.y) < 25) return true;
+        if (player.invincibleTimer > 0 || player.lv > obs.lv) continue;
+        let maxScale = Math.max(player.scale, obs.scale || 1);
+        for (let node of obs.nodes) {
+            if(Math.hypot(pHead.x - node.x, pHead.y - node.y) < 25 * maxScale) return true;
+        }
     }
     return false;
 }
@@ -795,8 +852,8 @@ function handleCollisions() {
         let item = powerItems[i];
         if(Math.hypot(pHead.x - item.x, pHead.y - item.y) < 18 + item.radius) {
             if(item.type === 'yellow') {
-                player.speed += 5;
-                floatingTexts.spawn(item.x, item.y, "⚡내 속도 +5", "#f1c40f");
+                player.speed += 20;
+                floatingTexts.spawn(item.x, item.y, "⚡내 속도 +20", "#f1c40f");
             } else if(item.type === 'yellow3') {
                 player.speedEffect = 3;
                 player.speedEffectTimer = 3;
@@ -816,85 +873,92 @@ function handleCollisions() {
     // 1. 일반 사탕
     for(let i = candies.length - 1; i >= 0; i--) {
         let c = candies[i];
-        if(Math.hypot(pHead.x - c.x, pHead.y - c.y) < 18 + c.radius) {
+        if(Math.hypot(pHead.x - c.x, pHead.y - c.y) < (18 * player.scale) + c.radius) {
             const pts = 5 + (c.type - 1) * 3;
             score += pts;
             document.getElementById('score').innerText = score;
             
             floatingTexts.spawn(c.x, c.y, `+${pts}`, '#f1c40f');
             player.nodesToAdd += c.type * 2;
-            cameraScale = Math.max(0.4, cameraScale * CONFIG.ZOOM_SHRINK);
+            player.lv = Math.min(95, player.lv + 1);
+            player.scale = 1.0 + (player.lv - 1) * 0.02;
+            cameraScale = Math.max(0.3, cameraScale * CONFIG.ZOOM_SHRINK);
             
             candies.splice(i, 1);
             candies.push(new Candy());
+            if(Math.random() > 0.5 && candies.length < 200) candies.push(new Candy());
             
             candiesEaten++;
             if(candiesEaten % 3 === 0) {
                 obstacleSnakes.push(new ObstacleSnake());
                 obstacleSnakes.push(new ObstacleSnake());
                 obstacleSnakes.push(new ObstacleSnake());
-                floatingTexts.spawn(pHead.x, pHead.y - 60, "🐍 3마리 출현!", "#ff4757");
             }
         }
     }
     
-    // 2. 무지개 사탕 (수면 + 포식 마법)
+    // 2. 무지개 사탕
     for(let i = rainbowCandies.length - 1; i >= 0; i--) {
         let rc = rainbowCandies[i];
-        if(Math.hypot(pHead.x - rc.x, pHead.y - rc.y) < 18 + rc.radius) {
+        if(Math.hypot(pHead.x - rc.x, pHead.y - rc.y) < (18 * player.scale) + rc.radius) {
             score += 50;
             document.getElementById('score').innerText = score;
-            floatingTexts.spawn(rc.x, rc.y, "✨포식 마법 발동!✨", "#0ff");
-            
-            obstacleSnakes.forEach(obs => {
-                obs.state = STATE.OBS_BLACK;
-                obs.hitCount = 0;
-                obs.hitCooldown = 1.0; 
-                obs.sleepTimer = 15.0; 
-                obs.isEdible = true;
-                
-                // 뱀들이 겹치지 않게 서로 밀어내기 (머리 기준)
-                obstacleSnakes.forEach(other => {
-                    if (obs === other) return;
-                    let dx = obs.nodes[0].x - other.nodes[0].x;
-                    let dy = obs.nodes[0].y - other.nodes[0].y;
-                    let dist = Math.hypot(dx, dy);
-                    if (dist < 100) { // 겹침 판정 거리
-                        let push = (100 - dist) / 2;
-                        let ang = Math.atan2(dy, dx);
-                        if (dist === 0) ang = Math.random() * Math.PI * 2;
-                        obs.nodes.forEach(n => { n.x += Math.cos(ang) * push; n.y += Math.sin(ang) * push; });
-                        other.nodes.forEach(n => { n.x -= Math.cos(ang) * push; n.y -= Math.sin(ang) * push; });
-                    }
-                });
-
-                // ("먹어줘!" 텍스트 제거됨)
-            });
-            
+            player.invincibleTimer = 10.0;
             rainbowCandies.splice(i, 1);
         }
     }
 
-    // 2.2 잠든 뱀 잡아먹기
+    // 2.2 뱀 잡아먹기
     for(let i = obstacleSnakes.length - 1; i >= 0; i--) {
         let obs = obstacleSnakes[i];
-        if(obs.isEdible) {
-            // 뱀의 머리나 마디 어디든 닿으면 먹을 수 있게 처리
+        if (player.invincibleTimer > 0 || player.lv > obs.lv) {
+            let maxScale = Math.max(player.scale, obs.scale || 1);
+            let eaten = false;
             for(let node of obs.nodes) {
-                if(Math.hypot(pHead.x - node.x, pHead.y - node.y) < 35) {
-                    score += 200;
+                if(Math.hypot(pHead.x - node.x, pHead.y - node.y) < 35 * maxScale) {
+                    score += 100 * obs.lv;
                     document.getElementById('score').innerText = score;
-                    floatingTexts.spawn(node.x, node.y, "냠냠! +200", "#0ff");
-                    player.nodesToAdd += 10;
-                    obstacleSnakes.splice(i, 1);
+                    floatingTexts.spawn(node.x, node.y, `냠냠! +${100 * obs.lv}`, "#0ff");
+                    player.nodesToAdd += 5 + obs.lv;
+                    player.lv = Math.min(95, player.lv + Math.max(1, Math.floor(obs.lv / 2)));
+                    player.scale = 1.0 + (player.lv - 1) * 0.02;
+                    eaten = true;
                     break;
+                }
+            }
+            if(eaten) {
+                obstacleSnakes.splice(i, 1);
+                obstacleSnakes.push(new ObstacleSnake());
+            }
+        }
+    }
+
+    // 2.3 적 뱀끼리 잡아먹기
+    for(let i = 0; i < obstacleSnakes.length; i++) {
+        for(let j = i + 1; j < obstacleSnakes.length; j++) {
+            let obs1 = obstacleSnakes[i];
+            let obs2 = obstacleSnakes[j];
+            let dist = Math.hypot(obs1.nodes[0].x - obs2.nodes[0].x, obs1.nodes[0].y - obs2.nodes[0].y);
+            let maxScale = Math.max(obs1.scale, obs2.scale);
+            if(dist < 35 * maxScale) {
+                if (obs1.lv > obs2.lv) {
+                    obs1.lv = Math.min(95, obs1.lv + Math.max(1, Math.floor(obs2.lv / 2)));
+                    obs1.scale = 1.0 + (obs1.lv - 1) * 0.02;
+                    obstacleSnakes.splice(j, 1);
+                    obstacleSnakes.push(new ObstacleSnake());
+                    j--;
+                } else if (obs2.lv > obs1.lv) {
+                    obs2.lv = Math.min(95, obs2.lv + Math.max(1, Math.floor(obs1.lv / 2)));
+                    obs2.scale = 1.0 + (obs2.lv - 1) * 0.02;
+                    obstacleSnakes.splice(i, 1);
+                    obstacleSnakes.push(new ObstacleSnake());
+                    i--;
+                    break; 
                 }
             }
         }
     }
 
-// (눈사람 충돌 로직 삭제됨)
-    
     // 3. 환경 장애물(나무, 바위) 
     for(let env of envObstacles) {
         let dx = pHead.x - env.x;
@@ -913,32 +977,6 @@ function handleCollisions() {
             player.dir.y = turnRight ? tmp : -tmp;
             
             floatingTexts.spawn(env.x, env.y - 40, "아이구!", "#fff");
-        }
-    }
-    
-    // 4. 자고 있는 뱀 충돌 
-    for(let obs of obstacleSnakes) {
-        if(obs.state !== STATE.OBS_CHASING) {
-            let dx = pHead.x - obs.cx;
-            let dy = pHead.y - obs.cy;
-            let dist = Math.hypot(dx, dy);
-            let min_dist = 85;
-            
-            if(dist < min_dist) {
-                if(obs.hitCooldown <= 0) {
-                    obs.hit();
-                    floatingTexts.spawn(obs.cx, obs.cy - 60, "💢", "#ff4757");
-                }
-                
-                let overlap = min_dist - dist + 5;
-                pHead.x += (dx / dist) * overlap;
-                pHead.y += (dy / dist) * overlap;
-                
-                let turnRight = Math.random() > 0.5;
-                let tmp = player.dir.x;
-                player.dir.x = turnRight ? -player.dir.y : player.dir.y;
-                player.dir.y = turnRight ? tmp : -tmp;
-            }
         }
     }
 }
@@ -978,11 +1016,31 @@ function gameLoop(timestamp) {
     
     if(gameTime >= nextSnakeSpawnTime) {
         obstacleSnakes.push(new ObstacleSnake());
-        floatingTexts.spawn(player.nodes[0].x, player.nodes[0].y - 80, "경고: 뱀 추가 등장!", "#e67e22");
         nextSnakeSpawnTime += 10;
     }
 
     let currentEnemySpeed = 130 + enemySpeedBonus + (gameTime * 0.8);
+
+    function wrapEntity(entity, pHead) {
+        let dx = entity.x - pHead.x;
+        let dy = entity.y - pHead.y;
+        if (Math.abs(dx) > 2000) entity.x -= Math.sign(dx) * 4000;
+        if (Math.abs(dy) > 2000) entity.y -= Math.sign(dy) * 4000;
+    }
+    candies.forEach(c => wrapEntity(c, player.nodes[0]));
+    envObstacles.forEach(e => wrapEntity(e, player.nodes[0]));
+    waterFeatures.forEach(w => wrapEntity(w, player.nodes[0]));
+    powerItems.forEach(p => wrapEntity(p, player.nodes[0]));
+    rainbowCandies.forEach(r => wrapEntity(r, player.nodes[0]));
+    obstacleSnakes.forEach(s => {
+        let dx = s.nodes[0].x - player.nodes[0].x;
+        let dy = s.nodes[0].y - player.nodes[0].y;
+        if (Math.abs(dx) > 2000 || Math.abs(dy) > 2000) {
+            let sx = Math.abs(dx) > 2000 ? -Math.sign(dx)*4000 : 0;
+            let sy = Math.abs(dy) > 2000 ? -Math.sign(dy)*4000 : 0;
+            s.nodes.forEach(n => { n.x += sx; n.y += sy; });
+        }
+    });
 
     player.update(dt);
     for(let obs of obstacleSnakes) obs.update(dt, player, currentEnemySpeed);
@@ -1005,26 +1063,22 @@ function gameLoop(timestamp) {
     ctx.translate(-player.nodes[0].x, -player.nodes[0].y);
 
     ctx.fillStyle = '#a2d149';
-    ctx.fillRect(0, 0, MAP_SIZE, MAP_SIZE);
+    ctx.fillRect(player.nodes[0].x - cw/(2*cameraScale), player.nodes[0].y - ch/(2*cameraScale), cw/cameraScale, ch/cameraScale);
 
     ctx.fillStyle = '#aad751';
     const gridS = 100;
-    for(let x = 0; x < MAP_SIZE; x+=gridS) {
-        for(let y = 0; y < MAP_SIZE; y+=gridS) {
-            if(((x/gridS) + (y/gridS)) % 2 === 0) {
+    let startX = Math.floor((player.nodes[0].x - cw/(2*cameraScale)) / gridS) * gridS;
+    let endX = player.nodes[0].x + cw/(2*cameraScale);
+    let startY = Math.floor((player.nodes[0].y - ch/(2*cameraScale)) / gridS) * gridS;
+    let endY = player.nodes[0].y + ch/(2*cameraScale);
+    
+    for(let x = startX - gridS; x <= endX + gridS; x+=gridS) {
+        for(let y = startY - gridS; y <= endY + gridS; y+=gridS) {
+            if((Math.abs(Math.floor(x/gridS)) + Math.abs(Math.floor(y/gridS))) % 2 === 0) {
                 ctx.fillRect(x, y, gridS, gridS);
             }
         }
     }
-
-    ctx.strokeStyle = '#8B4513'; 
-    ctx.lineWidth = 30;
-    ctx.lineJoin = 'miter';
-    ctx.strokeRect(0, 0, MAP_SIZE, MAP_SIZE);
-    
-    ctx.strokeStyle = '#5c2a07';
-    ctx.lineWidth = 10;
-    ctx.strokeRect(-15, -15, MAP_SIZE+30, MAP_SIZE+30);
 
     waterFeatures.forEach(wf => wf.draw(ctx));
     envObstacles.forEach(env => env.draw(ctx));
