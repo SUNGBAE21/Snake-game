@@ -1,3 +1,18 @@
+// --- Firebase Config & Initialization ---
+const firebaseConfig = {
+    apiKey: "AIzaSyAGCyYPuHKGbPYNCclyCI-2lOn-EwBDHRw",
+    authDomain: "snake-game-63253.firebaseapp.com",
+    databaseURL: "https://snake-game-63253-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "snake-game-63253",
+    storageBucket: "snake-game-63253.firebasestorage.app",
+    messagingSenderId: "840762568479",
+    appId: "1:840762568479:web:5b93ca604a2dad46950a2a"
+};
+if (typeof firebase !== 'undefined') {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = typeof firebase !== 'undefined' ? firebase.database() : null;
+
 // --- Game Config & Constants ---
 const CONFIG = {
     BASE_SPEED: 250, 
@@ -812,23 +827,40 @@ function init() {
     requestAnimationFrame(gameLoop);
 }
 
-function processRankingSync() {
-    const payload = { uuid: sessionUUID, data: encryptData({ score, timestamp: Date.now() }) };
-    !navigator.onLine ? (document.getElementById('offline-badge').style.display = 'block', localStorage.setItem('offlineQueue', JSON.stringify([...JSON.parse(localStorage.getItem('offlineQueue') || '[]'), payload]))) : (document.getElementById('offline-badge').style.display = 'none');
+async function processRankingSync() {
+    if (!navigator.onLine) {
+        document.getElementById('offline-badge').style.display = 'block';
+    } else {
+        document.getElementById('offline-badge').style.display = 'none';
+    }
     
-    let now = Date.now(), records = JSON.parse(localStorage.getItem('gameRankingRecords') || '[]').filter(r => now - r.date <= 2592000000);
+    let now = Date.now();
     let nameInput = document.getElementById('playerNameInput')?.value.trim();
-    let name = nameInput ? nameInput : (() => {
-        let i = 1, cand;
-        while (records.some(r => r.name === (cand = `USER${i.toString().padStart(2, '0')}`))) i++;
-        return cand;
-    })();
+    let name = nameInput ? nameInput : `USER${Math.floor(Math.random() * 9000) + 1000}`;
     
-    records.push({ name, score, date: now, isYou: true });
-    records.sort((a,b) => b.score - a.score);
-    localStorage.setItem('gameRankingRecords', JSON.stringify(records.map(r => ({name: r.name, score: r.score, date: r.date})).slice(0, 50)));
-    
-    document.getElementById('ranking-list').innerHTML = records.slice(0, 5).map((r, i) => `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts ${r.isYou ? '✨(YOU)✨' : ''}</li>`).join('');
+    if (db) {
+        // Save to Firebase
+        await db.ref('rankings/' + sessionUUID).set({
+            name: name,
+            score: score,
+            date: now
+        });
+
+        // Fetch top 5 for game over screen
+        db.ref('rankings').orderByChild('score').limitToLast(5).once('value', snapshot => {
+            let records = [];
+            snapshot.forEach(child => {
+                records.push({ id: child.key, ...child.val() });
+            });
+            records.sort((a, b) => b.score - a.score);
+            
+            document.getElementById('ranking-list').innerHTML = records.map((r, i) => 
+                `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts ${r.id === sessionUUID ? '✨(YOU)✨' : ''}</li>`
+            ).join('');
+        });
+    } else {
+        document.getElementById('ranking-list').innerHTML = '<li>DB 연결 실패</li>';
+    }
 }
 
 function checkGameOverCondition() {
@@ -1120,13 +1152,26 @@ const closeRecordBtn = document.getElementById('close-record-btn');
 const recordListMain = document.getElementById('record-list-main');
 
 recordBtn.addEventListener('click', () => {
-    let records = JSON.parse(localStorage.getItem('gameRankingRecords') || '[]');
-    if (records.length === 0) {
-        recordListMain.innerHTML = '<li style="text-align: center; border: none;">아직 기록이 없습니다.</li>';
-    } else {
-        recordListMain.innerHTML = records.slice(0, 20).map((r, i) => `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts</li>`).join('');
-    }
     recordScreen.classList.remove('hidden');
+    recordListMain.innerHTML = '<li style="text-align: center; border: none;">불러오는 중... ⏳</li>';
+    
+    if (db) {
+        db.ref('rankings').orderByChild('score').limitToLast(20).once('value', snapshot => {
+            let records = [];
+            snapshot.forEach(child => {
+                records.push(child.val());
+            });
+            records.sort((a, b) => b.score - a.score);
+            
+            if (records.length === 0) {
+                recordListMain.innerHTML = '<li style="text-align: center; border: none;">아직 기록이 없습니다.</li>';
+            } else {
+                recordListMain.innerHTML = records.map((r, i) => `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts</li>`).join('');
+            }
+        });
+    } else {
+        recordListMain.innerHTML = '<li style="text-align: center; border: none;">DB 연결 실패</li>';
+    }
 });
 
 closeRecordBtn.addEventListener('click', () => {
@@ -1170,11 +1215,3 @@ document.getElementById('restart-btn').addEventListener('click', () => {
     startCountdown();
 });
 
-window.addEventListener('online', () => {
-    let offlineQ = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-    if(offlineQ.length > 0) {
-        console.log("오프라인 데이터 서버 동기화 완료:", offlineQ);
-        localStorage.removeItem('offlineQueue');
-        document.getElementById('offline-badge').style.display = 'none';
-    }
-});
