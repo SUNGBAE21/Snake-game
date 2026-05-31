@@ -142,6 +142,8 @@ button:hover {
     background: #f1f2f6; border: 4px solid #dfe4ea;
     padding: 20px; border-radius: 20px; width: 90%; max-width: 400px;
     max-height: 50vh; overflow-y: auto;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
 }
 
 #record-list-main { list-style: none; text-align: left; }

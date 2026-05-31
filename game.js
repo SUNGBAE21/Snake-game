@@ -1124,7 +1124,7 @@ recordBtn.addEventListener('click', () => {
     if (records.length === 0) {
         recordListMain.innerHTML = '<li style="text-align: center; border: none;">아직 기록이 없습니다.</li>';
     } else {
-        recordListMain.innerHTML = records.slice(0, 10).map((r, i) => `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts</li>`).join('');
+        recordListMain.innerHTML = records.slice(0, 20).map((r, i) => `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts</li>`).join('');
     }
     recordScreen.classList.remove('hidden');
 });
