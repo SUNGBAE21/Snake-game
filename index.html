@@ -17,7 +17,18 @@
         <div id="start-screen">
             <h1 class="game-title">캐치!<br>스네이크!</h1>
             <input type="text" id="playerNameInput" placeholder="이름입력" maxlength="10" autocomplete="off">
-            <button id="start-btn">시작 [START]</button>
+            <div class="button-group">
+                <button id="start-btn">시작 [START]</button>
+                <button id="record-btn">기록 [RECORD]</button>
+            </div>
+        </div>
+
+        <div id="record-screen" class="hidden">
+            <h1 class="game-title" style="font-size: clamp(30px, 10vw, 50px);">🏆 명예의 전당 🏆</h1>
+            <div id="record-list-container">
+                <ul id="record-list-main"></ul>
+            </div>
+            <button id="close-record-btn">닫기 [CLOSE]</button>
         </div>
 
         <div id="countdown-screen" class="hidden">

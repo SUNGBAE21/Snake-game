@@ -416,8 +416,8 @@ class ObstacleSnake {
         this.hitCount = 3;
         this.hitCooldown = 0;
         this.sleepTimer = 0; 
-        this.lv = Math.min(95, Math.max(1, (player ? player.lv : 1) + Math.floor((Math.random() - 0.5) * 5)));
-        this.scale = 1.0 + (this.lv - 1) * 0.02;
+        this.lv = Math.max(1, (player ? player.lv : 1) + Math.floor((Math.random() - 0.5) * 5));
+        this.scale = 1.0 + Math.min(100, this.lv - 1) * 0.02;
         this.wanderAngle = Math.random() * Math.PI * 2;
         
         this.id = Math.random() * Math.PI * 2; 
@@ -880,8 +880,8 @@ function handleCollisions() {
             
             floatingTexts.spawn(c.x, c.y, `+${pts}`, '#f1c40f');
             player.nodesToAdd += c.type * 2;
-            player.lv = Math.min(95, player.lv + 1);
-            player.scale = 1.0 + (player.lv - 1) * 0.02;
+            player.lv += 1;
+            player.scale = 1.0 + Math.min(100, player.lv - 1) * 0.02;
             cameraScale = Math.max(0.3, cameraScale * CONFIG.ZOOM_SHRINK);
             
             candies.splice(i, 1);
@@ -920,8 +920,8 @@ function handleCollisions() {
                     document.getElementById('score').innerText = score;
                     floatingTexts.spawn(node.x, node.y, `냠냠! +${100 * obs.lv}`, "#0ff");
                     player.nodesToAdd += 5 + obs.lv;
-                    player.lv = Math.min(95, player.lv + Math.max(1, Math.floor(obs.lv / 2)));
-                    player.scale = 1.0 + (player.lv - 1) * 0.02;
+                    player.lv += Math.max(1, Math.floor(obs.lv / 2));
+                    player.scale = 1.0 + Math.min(100, player.lv - 1) * 0.02;
                     eaten = true;
                     break;
                 }
@@ -942,14 +942,14 @@ function handleCollisions() {
             let maxScale = Math.max(obs1.scale, obs2.scale);
             if(dist < 35 * maxScale) {
                 if (obs1.lv > obs2.lv) {
-                    obs1.lv = Math.min(95, obs1.lv + Math.max(1, Math.floor(obs2.lv / 2)));
-                    obs1.scale = 1.0 + (obs1.lv - 1) * 0.02;
+                    obs1.lv += Math.max(1, Math.floor(obs2.lv / 2));
+                    obs1.scale = 1.0 + Math.min(100, obs1.lv - 1) * 0.02;
                     obstacleSnakes.splice(j, 1);
                     obstacleSnakes.push(new ObstacleSnake());
                     j--;
                 } else if (obs2.lv > obs1.lv) {
-                    obs2.lv = Math.min(95, obs2.lv + Math.max(1, Math.floor(obs1.lv / 2)));
-                    obs2.scale = 1.0 + (obs2.lv - 1) * 0.02;
+                    obs2.lv += Math.max(1, Math.floor(obs1.lv / 2));
+                    obs2.scale = 1.0 + Math.min(100, obs2.lv - 1) * 0.02;
                     obstacleSnakes.splice(i, 1);
                     obstacleSnakes.push(new ObstacleSnake());
                     i--;
@@ -1114,6 +1114,24 @@ const countdownScreen = document.getElementById('countdown-screen');
 const countdownText = document.getElementById('countdown-text');
 const scoreBoard = document.getElementById('score-board');
 const startBtn = document.getElementById('start-btn');
+const recordBtn = document.getElementById('record-btn');
+const recordScreen = document.getElementById('record-screen');
+const closeRecordBtn = document.getElementById('close-record-btn');
+const recordListMain = document.getElementById('record-list-main');
+
+recordBtn.addEventListener('click', () => {
+    let records = JSON.parse(localStorage.getItem('gameRankingRecords') || '[]');
+    if (records.length === 0) {
+        recordListMain.innerHTML = '<li style="text-align: center; border: none;">아직 기록이 없습니다.</li>';
+    } else {
+        recordListMain.innerHTML = records.slice(0, 10).map((r, i) => `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts</li>`).join('');
+    }
+    recordScreen.classList.remove('hidden');
+});
+
+closeRecordBtn.addEventListener('click', () => {
+    recordScreen.classList.add('hidden');
+});
 
 const startCountdown = () => {
     countdownScreen.classList.remove('hidden');
