@@ -38,6 +38,11 @@ const encryptData = (data) => typeof CryptoJS !== 'undefined'
 // --- Core Engine Setup ---
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+
+// --- Image Assets ---
+const customCandyImg = new Image();
+customCandyImg.src = 'candy.png';
+
 let cw, ch;
 const resize = () => { cw = canvas.width = window.innerWidth; ch = canvas.height = window.innerHeight; };
 window.addEventListener('resize', resize);
@@ -672,30 +677,46 @@ class Candy {
     }
     
     draw(ctx) {
-        let hue = this.type * 36;
-        let color = `hsl(${hue}, 100%, 65%)`; 
-        ctx.fillStyle = color;
-        ctx.strokeStyle = '#2c3e50';
-        ctx.lineWidth = 3;
-        
-        // Draw circular container
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
-        ctx.fill();
-        ctx.stroke();
+        if (customCandyImg.complete && customCandyImg.naturalWidth !== 0) {
+            ctx.save();
+            
+            // 약간의 둥둥 떠다니는 애니메이션 효과 (선택사항)
+            let floatY = Math.sin(gameTime * 3 + this.x) * 3;
 
-        // Shiny effect
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.beginPath();
-        ctx.arc(this.x - this.radius*0.3, this.y - this.radius*0.3, this.radius*0.3, 0, Math.PI*2);
-        ctx.fill();
+            // 원형 클리핑 마스크 적용
+            ctx.beginPath();
+            ctx.arc(this.x, this.y + floatY, this.radius, 0, Math.PI * 2);
+            ctx.clip();
+            
+            // 이미지 그리기
+            ctx.drawImage(customCandyImg, this.x - this.radius, this.y + floatY - this.radius, this.radius * 2, this.radius * 2);
+            
+            ctx.restore();
 
-        // Candy icon
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = `${this.radius * 1.2}px Arial`;
-        ctx.fillText("🍬", this.x, this.y + 2);
+            // 테두리
+            ctx.beginPath();
+            ctx.arc(this.x, this.y + floatY, this.radius, 0, Math.PI * 2);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#2c3e50';
+            ctx.stroke();
+            
+            // 광택 효과
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.beginPath();
+            ctx.arc(this.x - this.radius*0.3, this.y + floatY - this.radius*0.3, this.radius*0.3, 0, Math.PI*2);
+            ctx.fill();
+
+        } else {
+            // 이미지가 로드되기 전의 임시 사탕 모양
+            let hue = this.type * 36;
+            ctx.fillStyle = `hsl(${hue}, 100%, 65%)`; 
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+        }
     }
 }
 
