@@ -846,8 +846,8 @@ async function processRankingSync() {
             date: now
         });
 
-        // Fetch top 5 for game over screen
-        db.ref('rankings').orderByChild('score').limitToLast(5).once('value', snapshot => {
+        // Fetch top 20 for game over screen
+        db.ref('rankings').orderByChild('score').limitToLast(20).once('value', snapshot => {
             let records = [];
             snapshot.forEach(child => {
                 records.push({ id: child.key, ...child.val() });
