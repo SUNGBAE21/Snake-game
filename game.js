@@ -644,7 +644,7 @@ class ObstacleSnake {
 class Candy {
     constructor() {
         this.type = Math.floor(Math.random() * 10) + 1; 
-        this.radius = 24; // 무지개 아이템과 동일한 크기
+        this.radius = 72; // 커스텀 이미지 크기 (3배)
         this.spawn();
     }
     
