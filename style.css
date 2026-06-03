@@ -28,6 +28,49 @@ body, html {
     font-size: 14px; color: #ff4757; margin-top: 5px; text-align: center; font-weight: 900;
 }
 
+#neon-banner {
+    position: absolute;
+    top: 0; left: 0; width: 100%;
+    text-align: center;
+    padding: 10px 20px;
+    font-family: 'Fredoka', cursive;
+    font-size: clamp(18px, 4vw, 28px);
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 2px;
+    pointer-events: none;
+    z-index: 50;
+    text-shadow:
+        0 0 7px #fff,
+        0 0 10px #fff,
+        0 0 21px #fff,
+        0 0 42px #ff69b4,
+        0 0 82px #ff69b4,
+        0 0 92px #ff69b4,
+        0 0 102px #ff69b4,
+        0 0 151px #ff69b4;
+    animation: neonFlicker 3s infinite alternate;
+}
+
+@keyframes neonFlicker {
+    0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+        text-shadow:
+            0 0 7px #fff,
+            0 0 10px #fff,
+            0 0 21px #fff,
+            0 0 42px #ff69b4,
+            0 0 82px #ff69b4,
+            0 0 92px #ff69b4,
+            0 0 102px #ff69b4,
+            0 0 151px #ff69b4;
+        opacity: 1;
+    }
+    20%, 24%, 55% {
+        text-shadow: none;
+        opacity: 0.8;
+    }
+}
+
 #game-over-screen { 
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
     background: #fff; 

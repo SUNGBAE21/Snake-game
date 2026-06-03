@@ -31,6 +31,9 @@ const uuidv4 = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c =
     return v.toString(16);
 });
 
+// 숫자에 3자리 콤마 포맷팅
+const fmtNum = (n) => Number(n).toLocaleString('ko-KR');
+
 const encryptData = (data) => typeof CryptoJS !== 'undefined' 
     ? CryptoJS.AES.encrypt(JSON.stringify(data), CONFIG.AES_KEY).toString() 
     : btoa(JSON.stringify(data));
@@ -876,7 +879,7 @@ async function processRankingSync() {
             records.sort((a, b) => b.score - a.score);
             
             document.getElementById('ranking-list').innerHTML = records.map((r, i) => 
-                `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts ${r.id === sessionUUID ? '✨(YOU)✨' : ''}</li>`
+                `<li>#${i+1} 🏆 ${r.name} - ${fmtNum(r.score)} pts ${r.id === sessionUUID ? '✨(YOU)✨' : ''}</li>`
             ).join('');
         });
     } else {
@@ -1187,7 +1190,7 @@ recordBtn.addEventListener('click', () => {
             if (records.length === 0) {
                 recordListMain.innerHTML = '<li style="text-align: center; border: none;">아직 기록이 없습니다.</li>';
             } else {
-                recordListMain.innerHTML = records.map((r, i) => `<li>#${i+1} 🏆 ${r.name} - ${r.score} pts</li>`).join('');
+                recordListMain.innerHTML = records.map((r, i) => `<li>#${i+1} 🏆 ${r.name} - ${fmtNum(r.score)} pts</li>`).join('');
             }
         });
     } else {
